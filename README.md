@@ -4,7 +4,7 @@ Simple screen recorder for Mac
 
 ## Preview
 
-![Preview](https://monosnap.com/file/EwyiaXZGint6g8X4zsadjWxVCUhD9J.png)
+![Preview](https://monosnap.com/file/zyTid534mXjmJbY7G8GYNPUzMejT64.png)
 
 ## In a early development stage!
 

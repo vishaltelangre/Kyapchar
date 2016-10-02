@@ -10,7 +10,7 @@ import Cocoa
 import AVFoundation
 import AppKit
 
-class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate, AVCaptureVideoDataOutputSampleBufferDelegate {
+class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
     var session: AVCaptureSession? = AVCaptureSession()
     var output: AVCaptureMovieFileOutput? = AVCaptureMovieFileOutput()
     
@@ -19,10 +19,10 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate, AV
     
     @IBAction func onRecordClick(sender: NSButton) {
         if (sender.state == NSOffState) {
-            sender.title = "Record"
+            sender.title = "▶️"
             stopRecording()
         } else {
-            sender.title = "Stop"
+            sender.title = "🔴"
             durationLabel.stringValue = ""
             startRecording()
         }
@@ -35,18 +35,21 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate, AV
     }
     
     func startRecording() {
-        if session == nil || output == nil {
-            return
+        if session == nil {
+            session = AVCaptureSession()
         }
         
-        let displayID = CGMainDisplayID()
-        let input = AVCaptureScreenInput(displayID: displayID)
+        if output == nil {
+            output = AVCaptureMovieFileOutput()
+        }
+        
+        let input = AVCaptureScreenInput(displayID: CGMainDisplayID())
         let screen = NSScreen.mainScreen()!
         let screenRect = screen.frame
-        let destination = NSURL(fileURLWithPath: "/tmp/test.mov")
+        let destination: NSURL = unqiueDestination()
         
         input.cropRect = screenRect
-        input.minFrameDuration = refreshRateForDisplay(displayID)
+        input.minFrameDuration = CMTimeMake(1, 1000)
         
         if !session!.canAddInput(input) {
             return
@@ -62,7 +65,9 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate, AV
         
         do {
             try NSFileManager.defaultManager().removeItemAtURL(destination)
-        } catch _ {}
+        } catch {
+            print("Error while deleting file: \(error)")
+        }
         
         output!.startRecordingToOutputFileURL(destination, recordingDelegate: self)
     }
@@ -70,7 +75,20 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate, AV
     func stopRecording() {
         if output != nil {
             output!.stopRecording()
-            durationLabel.stringValue = "Duration: \(CMTimeGetSeconds(output!.recordedDuration)) | Location: \(output!.outputFileURL.absoluteString)"
+            let duration: Int = Int(CMTimeGetSeconds(output!.recordedDuration))
+            let location = output!.outputFileURL.absoluteString
+            var fileSize : Float = 0.0
+            
+            do {
+                let attr : NSDictionary? = try NSFileManager.defaultManager().attributesOfItemAtPath(output!.outputFileURL.path!)
+                if let _attr = attr {
+                    fileSize = Float(_attr.fileSize()/(1024*1024));
+                }
+            } catch {
+                print("Error while fetching recorded file size: \(error)")
+            }
+            
+            durationLabel.stringValue = "⌚ \(formatDuration(duration)) Seconds\n📁 \(location)\nSize \(String(format: "%.2f", fileSize)) MB"
         }
     }
 
@@ -78,6 +96,7 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate, AV
         if (error != nil) {
             debugPrint(error)
         }
+        
         dispatch_async(dispatch_get_main_queue()) {
             self.session?.stopRunning()
             self.session = nil
@@ -85,12 +104,21 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate, AV
         }
     }
     
-    func captureOutput(captureOutput: AVCaptureOutput!, didOutputSampleBuffer sampleBuffer: CMSampleBuffer!, fromConnection connection: AVCaptureConnection!) {
-        durationLabel.stringValue = "Duration: \(CMTimeGetSeconds(output!.recordedDuration))"
+    func unqiueDestination() -> NSURL {
+        let date = NSDate()
+        let calendar = NSCalendar.currentCalendar()
+        let components = calendar.components([.Hour, .Minute, .Second, .Day, .Month, .Year], fromDate: date)
+        let moviesDirectoryURL: NSURL = NSFileManager.defaultManager().URLsForDirectory(.MoviesDirectory, inDomains: .UserDomainMask)[0]
+        let fileName = "Kyapchar_\(components.day)-\(components.month)-\(components.year)_\(components.hour):\(components.minute):\(components.second).mov"
+        
+        return moviesDirectoryURL.URLByAppendingPathComponent(fileName)
     }
     
-    func refreshRateForDisplay(displayID: CGDirectDisplayID) -> CMTime {
-        // TODO
-        return CMTimeMake(1, 1000)
+    func formatDuration(seconds: Int) -> String {
+        let hrs: Int = Int(seconds / 3600)
+        let mins: Int = Int((seconds % 3600) / 60)
+        let secs: Int = Int((seconds % 3600) % 60)
+        
+        return String(format: "%02d:%02d:%02d", hrs, mins, secs)
     }
 }
