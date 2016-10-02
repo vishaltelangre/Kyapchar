@@ -11,8 +11,17 @@ import AVFoundation
 import AppKit
 
 class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
-    var session: AVCaptureSession? = AVCaptureSession()
-    var output: AVCaptureMovieFileOutput? = AVCaptureMovieFileOutput()
+    var session: AVCaptureSession!
+    var output: AVCaptureMovieFileOutput!
+    var audioRecorder: AVAudioRecorder!
+    var castedVideoURL = NSURL()
+    var micAudioURL = NSURL()
+    var finalVideoURL = NSURL()
+    
+    let micAudioRecordSettings = [AVSampleRateKey : NSNumber(float: Float(44100.0)),
+                          AVFormatIDKey : NSNumber(int: Int32(kAudioFormatMPEG4AAC)),
+                          AVNumberOfChannelsKey : NSNumber(int: 1),
+                          AVEncoderAudioQualityKey : NSNumber(int: Int32(AVAudioQuality.Medium.rawValue))]
     
     @IBOutlet weak var recordButton: NSButton!
     @IBOutlet weak var durationLabel: NSTextField!
@@ -35,18 +44,22 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
     }
     
     func startRecording() {
-        if session == nil {
-            session = AVCaptureSession()
-        }
-        
-        if output == nil {
-            output = AVCaptureMovieFileOutput()
-        }
+        session = AVCaptureSession()
+        output = AVCaptureMovieFileOutput()
+        (castedVideoURL, micAudioURL, finalVideoURL) = filePaths()
         
         let input = AVCaptureScreenInput(displayID: CGMainDisplayID())
         let screen = NSScreen.mainScreen()!
         let screenRect = screen.frame
-        let destination: NSURL = unqiueDestination()
+        
+        do {
+            audioRecorder = try AVAudioRecorder(URL: micAudioURL, settings: micAudioRecordSettings)
+        } catch {
+            print("Cannot initialize AVAudioRecorder: \(error)")
+        }
+        
+        audioRecorder?.meteringEnabled = true
+        audioRecorder?.prepareToRecord()
         
         input.cropRect = screenRect
         input.minFrameDuration = CMTimeMake(1, 1000)
@@ -63,32 +76,15 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
         
         session?.startRunning()
         
-        do {
-            try NSFileManager.defaultManager().removeItemAtURL(destination)
-        } catch {
-            print("Error while deleting file: \(error)")
-        }
-        
-        output!.startRecordingToOutputFileURL(destination, recordingDelegate: self)
+        output!.startRecordingToOutputFileURL(castedVideoURL, recordingDelegate: self)
+        audioRecorder.record()
     }
     
     func stopRecording() {
         if output != nil {
             output!.stopRecording()
-            let duration: Int = Int(CMTimeGetSeconds(output!.recordedDuration))
-            let location = output!.outputFileURL.absoluteString
-            var fileSize : Float = 0.0
-            
-            do {
-                let attr : NSDictionary? = try NSFileManager.defaultManager().attributesOfItemAtPath(output!.outputFileURL.path!)
-                if let _attr = attr {
-                    fileSize = Float(_attr.fileSize()/(1024*1024));
-                }
-            } catch {
-                print("Error while fetching recorded file size: \(error)")
-            }
-            
-            durationLabel.stringValue = "⌚ \(formatDuration(duration)) Seconds\n📁 \(location)\nSize \(String(format: "%.2f", fileSize)) MB"
+            audioRecorder?.stop()
+            durationLabel.stringValue = "Please wait..."
         }
     }
 
@@ -99,19 +95,88 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
         
         dispatch_async(dispatch_get_main_queue()) {
             self.session?.stopRunning()
+            
+            self.generateFinalVideo()
+            
             self.session = nil
             self.output = nil
+            self.audioRecorder = nil
         }
     }
     
-    func unqiueDestination() -> NSURL {
+    func generateFinalVideo() {
+        let mixComposition = AVMutableComposition()
+        let micAudioAsset = AVAsset(URL: micAudioURL)
+        let castedVideoAsset = AVAsset(URL: castedVideoURL)
+        let micAudioTimeRange = CMTimeRangeMake(kCMTimeZero, micAudioAsset.duration)
+        let castedVideoTimeRange = CMTimeRangeMake(kCMTimeZero, castedVideoAsset.duration)
+        let compositionAudioTrack = mixComposition.addMutableTrackWithMediaType(AVMediaTypeAudio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        let compositionVideoTrack = mixComposition.addMutableTrackWithMediaType(AVMediaTypeVideo, preferredTrackID: kCMPersistentTrackID_Invalid)
+        
+        do {
+            let track: AVAssetTrack = micAudioAsset.tracksWithMediaType(AVMediaTypeAudio).first!
+            try compositionAudioTrack.insertTimeRange(micAudioTimeRange, ofTrack: track, atTime: kCMTimeZero)
+        } catch {
+            print("Error while adding micAudioAsset to compositionAudioTrack: \(error)")
+        }
+        
+        do {
+            let track: AVAssetTrack = castedVideoAsset.tracksWithMediaType(AVMediaTypeVideo).first!
+            try compositionVideoTrack.insertTimeRange(castedVideoTimeRange, ofTrack: track, atTime: kCMTimeZero)
+        } catch {
+            print("Error while adding castedVideoAsset to compositionVideoTrack: \(error)")
+        }
+        
+        let assetExportSession = AVAssetExportSession(asset: mixComposition, presetName: AVAssetExportPresetHighestQuality)
+        assetExportSession?.outputFileType = "com.apple.quicktime-movie"
+        assetExportSession?.outputURL = finalVideoURL
+        assetExportSession?.exportAsynchronouslyWithCompletionHandler({
+            dispatch_async(dispatch_get_main_queue(), { 
+                if assetExportSession!.status == AVAssetExportSessionStatus.Completed {
+                    let duration: Int = Int(CMTimeGetSeconds(castedVideoAsset.duration))
+                    var fileSize : Float = 0.0
+                    
+                    do {
+                        let attr : NSDictionary? = try NSFileManager.defaultManager().attributesOfItemAtPath(self.finalVideoURL.path!)
+                        if let _attr = attr {
+                            fileSize = Float(_attr.fileSize()/(1024*1024));
+                        }
+                    } catch {
+                        print("Error while fetching final video file size: \(error)")
+                    }
+                    
+             
+                    self.durationLabel.stringValue = "⌚ \(self.formatDuration(duration)) Seconds\n📁 \(self.finalVideoURL.absoluteString)\nSize \(String(format: "%.2f", fileSize)) MB"
+                } else {
+                    print("Export failed")
+                    self.durationLabel.stringValue = "Export failed!"
+                }
+                
+                do {
+                    try NSFileManager.defaultManager().removeItemAtURL(self.castedVideoURL)
+                    try NSFileManager.defaultManager().removeItemAtURL(self.micAudioURL)
+                } catch {
+                    print("Error while deleting temporary files: \(error)")
+                }
+
+            })
+        })
+    }
+    
+    func filePaths() -> (NSURL, NSURL, NSURL) {
         let date = NSDate()
         let calendar = NSCalendar.currentCalendar()
         let components = calendar.components([.Hour, .Minute, .Second, .Day, .Month, .Year], fromDate: date)
         let moviesDirectoryURL: NSURL = NSFileManager.defaultManager().URLsForDirectory(.MoviesDirectory, inDomains: .UserDomainMask)[0]
-        let fileName = "Kyapchar_\(components.day)-\(components.month)-\(components.year)_\(components.hour):\(components.minute):\(components.second).mov"
+        let finalVideoFilename = "Kyapchar_\(components.day)-\(components.month)-\(components.year)_\(components.hour):\(components.minute):\(components.second).mov"
+        let finalVideoPath = moviesDirectoryURL.URLByAppendingPathComponent(finalVideoFilename)
+        let filename = date.timeIntervalSince1970 * 1000
+        let tempVideoFilePath = NSURL(fileURLWithPath: "/tmp/\(filename).mp4")
+        let tempMicAudioFilePath = NSURL(fileURLWithPath: "/tmp/\(filename).m4a")
         
-        return moviesDirectoryURL.URLByAppendingPathComponent(fileName)
+        print("Paths: tempVideoFilePath: \(tempVideoFilePath), tempMicAudioFilePath: \(tempMicAudioFilePath), finalVideoPath: \(finalVideoPath)")
+        
+        return (tempVideoFilePath, tempMicAudioFilePath, finalVideoPath)
     }
     
     func formatDuration(seconds: Int) -> String {
