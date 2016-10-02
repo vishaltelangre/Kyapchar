@@ -275,6 +275,7 @@
 				08DE4F941DA00B9000D969DA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
