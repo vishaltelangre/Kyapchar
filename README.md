@@ -4,9 +4,11 @@ Simple screen and microphone audio recorder for Mac
 
 ## Preview
 
-Watch this demo screencast captured using Kyapchar - https://youtu.be/B4RfdJCZ6yU.
+Watch this demo screencast captured using Kyapchar (v0.0.1) - https://youtu.be/B4RfdJCZ6yU.
 
-![Preview](https://monosnap.com/file/zyTid534mXjmJbY7G8GYNPUzMejT64.png)
+![monosnap 2016-10-22 21-22-17](https://cloud.githubusercontent.com/assets/876195/19620567/e80b1d9e-989d-11e6-9757-4868b7fdba96.png)
+![kyapchar 2016-10-22 21-21-16](https://cloud.githubusercontent.com/assets/876195/19620566/e80986c8-989d-11e6-85f2-2662aad6bfb6.png)
+
 
 ## Notice
 
