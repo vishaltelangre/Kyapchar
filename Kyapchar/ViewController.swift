@@ -10,13 +10,14 @@ import Cocoa
 import AVFoundation
 import AppKit
 
-class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
+class ViewController: NSViewController {
     var session: AVCaptureSession!
     var output: AVCaptureMovieFileOutput!
     var audioRecorder: AVAudioRecorder!
     var castedVideoURL = NSURL()
     var micAudioURL = NSURL()
     var finalVideoURL = NSURL()
+    var storedFileInfo: [[String]] = []
     
     let micAudioRecordSettings = [AVSampleRateKey : NSNumber(float: Float(44100.0)),
                           AVFormatIDKey : NSNumber(int: Int32(kAudioFormatMPEG4AAC)),
@@ -24,29 +25,50 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
                           AVEncoderAudioQualityKey : NSNumber(int: Int32(AVAudioQuality.Medium.rawValue))]
     
     @IBOutlet weak var recordButton: NSButton!
-    @IBOutlet weak var durationLabel: NSTextField!
+    @IBOutlet weak var debugInfoLabel: NSTextField!
+    @IBOutlet weak var pauseResumeButton: NSButton!
+    @IBOutlet weak var storedFileInfoTableView: NSTableView!
     
     @IBAction func onRecordClick(sender: NSButton) {
         if (sender.state == NSOffState) {
-            sender.title = "▶️"
+            sender.image = NSImage(named: "record")
+            sender.toolTip = "Start Recording"
+            pauseResumeButton.hidden = true
             stopRecording()
         } else {
-            sender.title = "🔴"
-            durationLabel.stringValue = ""
+            sender.image = NSImage(named: "stop")
+            sender.toolTip = "Stop Recording"
+            pauseResumeButton.hidden = false
+            debugInfoLabel.stringValue = ""
             startRecording()
         }
     }
-
+    
+    @IBAction func onPauseResumeClick(sender: NSButton) {
+        if output.recordingPaused {
+            output.resumeRecording()
+            audioRecorder.record()
+        } else {
+            output.pauseRecording()
+            audioRecorder.pause()
+        }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        recordButton.setNextState()
+        pauseResumeButton.hidden = true
+        pauseResumeButton.image = NSImage(named: "pause")
+        pauseResumeButton.toolTip = "Pause Recording"
+
+        storedFileInfoTableView.setDataSource(self)
     }
     
     func startRecording() {
+        storedFileInfo = []
         session = AVCaptureSession()
         output = AVCaptureMovieFileOutput()
         (castedVideoURL, micAudioURL, finalVideoURL) = filePaths()
+        storedFileInfoTableView.reloadData()
         
         let input = AVCaptureScreenInput(displayID: CGMainDisplayID())
         let screen = NSScreen.mainScreen()!
@@ -82,25 +104,9 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
     
     func stopRecording() {
         if output != nil {
-            output!.stopRecording()
+            output?.stopRecording()
             audioRecorder?.stop()
-            durationLabel.stringValue = "Please wait..."
-        }
-    }
-
-    func captureOutput(captureOutput: AVCaptureFileOutput!, didFinishRecordingToOutputFileAtURL outputFileURL: NSURL!, fromConnections connections: [AnyObject]!, error: NSError!) {
-        if (error != nil) {
-            debugPrint(error)
-        }
-        
-        dispatch_async(dispatch_get_main_queue()) {
-            self.session?.stopRunning()
-            
-            self.generateFinalVideo()
-            
-            self.session = nil
-            self.output = nil
-            self.audioRecorder = nil
+            debugInfoLabel.stringValue = "Please wait..."
         }
     }
     
@@ -131,7 +137,7 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
         assetExportSession?.outputFileType = "com.apple.quicktime-movie"
         assetExportSession?.outputURL = finalVideoURL
         assetExportSession?.exportAsynchronouslyWithCompletionHandler({
-            dispatch_async(dispatch_get_main_queue(), { 
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), {
                 if assetExportSession?.status == AVAssetExportSessionStatus.Completed {
                     let duration: Int = Int(CMTimeGetSeconds((assetExportSession?.asset.duration)!))
                     var fileSize : Float = 0.0
@@ -145,11 +151,12 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
                         print("Error while fetching final video file size: \(error)")
                     }
                     
-             
-                    self.durationLabel.stringValue = "⌚ \(self.formatDuration(duration)) Seconds\n📁 \(self.finalVideoURL.absoluteString)\nSize \(String(format: "%.2f", fileSize)) MB"
+                    self.storedFileInfo = [["Duration", "\(self.formatDuration(duration)) Seconds"],
+                                           ["Location", self.finalVideoURL.absoluteString.stringByReplacingOccurrencesOfString("file://" + NSHomeDirectory(), withString: "~")],
+                                            ["Size", "\(String(format: "%.2f", fileSize)) MB"]]
                 } else {
                     print("Export failed")
-                    self.durationLabel.stringValue = "Export failed!"
+                    self.storedFileInfo = [["Error", "Export Failed"]]
                 }
                 
                 do {
@@ -159,6 +166,10 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
                     print("Error while deleting temporary files: \(error)")
                 }
 
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.debugInfoLabel.stringValue = ""
+                    self.storedFileInfoTableView.reloadData()
+                })
             })
         })
     }
@@ -185,5 +196,55 @@ class ViewController: NSViewController, AVCaptureFileOutputRecordingDelegate {
         let secs: Int = Int((seconds % 3600) % 60)
         
         return String(format: "%02d:%02d:%02d", hrs, mins, secs)
+    }
+}
+
+extension ViewController: AVCaptureFileOutputRecordingDelegate {
+    func captureOutput(captureOutput: AVCaptureFileOutput!, didPauseRecordingToOutputFileAtURL fileURL: NSURL!, fromConnections connections: [AnyObject]!) {
+        pauseResumeButton.image = NSImage(named: "resume")
+        pauseResumeButton.toolTip = "Resume Recording"
+    }
+    
+    func captureOutput(captureOutput: AVCaptureFileOutput!, didResumeRecordingToOutputFileAtURL fileURL: NSURL!, fromConnections connections: [AnyObject]!) {
+        pauseResumeButton.image = NSImage(named: "pause")
+        pauseResumeButton.toolTip = "Pause Recording"
+        
+        NSApp.mainWindow?.miniaturize(self)
+    }
+    
+    func captureOutput(captureOutput: AVCaptureFileOutput!, didStartRecordingToOutputFileAtURL fileURL: NSURL!, fromConnections connections: [AnyObject]!) {
+        NSApp.mainWindow?.miniaturize(self)
+    }
+    
+    func captureOutput(captureOutput: AVCaptureFileOutput!, didFinishRecordingToOutputFileAtURL outputFileURL: NSURL!, fromConnections connections: [AnyObject]!, error: NSError!) {
+        if (error != nil) {
+            debugPrint(error)
+        }
+        
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0)) {
+            self.session?.stopRunning()
+            
+            self.generateFinalVideo()
+            
+            self.session = nil
+            self.output = nil
+            self.audioRecorder = nil
+        }
+    }
+}
+
+extension ViewController: NSTableViewDataSource {
+    func numberOfRowsInTableView(tableView: NSTableView) -> Int {
+        return storedFileInfo.count
+    }
+    
+    func tableView(tableView: NSTableView, objectValueForTableColumn tableColumn: NSTableColumn?, row: Int) -> AnyObject? {
+        let item = storedFileInfo[row]
+        
+        if tableColumn?.identifier == "key" {
+            return item[0]
+        } else {
+            return item[1]
+        }
     }
 }
