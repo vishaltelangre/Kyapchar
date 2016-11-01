@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "08DE4F821DA00B9000D969DA"
+               BlueprintIdentifier = "089CD7501DC7B742005067DB"
                BuildableName = "Kyapchar.app"
                BlueprintName = "Kyapchar"
                ReferencedContainer = "container:Kyapchar.xcodeproj">
@@ -32,7 +32,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "08DE4F821DA00B9000D969DA"
+            BlueprintIdentifier = "089CD7501DC7B742005067DB"
             BuildableName = "Kyapchar.app"
             BlueprintName = "Kyapchar"
             ReferencedContainer = "container:Kyapchar.xcodeproj">
@@ -55,7 +55,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "08DE4F821DA00B9000D969DA"
+            BlueprintIdentifier = "089CD7501DC7B742005067DB"
             BuildableName = "Kyapchar.app"
             BlueprintName = "Kyapchar"
             ReferencedContainer = "container:Kyapchar.xcodeproj">
@@ -74,7 +74,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "08DE4F821DA00B9000D969DA"
+            BlueprintIdentifier = "089CD7501DC7B742005067DB"
             BuildableName = "Kyapchar.app"
             BlueprintName = "Kyapchar"
             ReferencedContainer = "container:Kyapchar.xcodeproj">

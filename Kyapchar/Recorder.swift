@@ -1,74 +1,54 @@
 //
-//  ViewController.swift
+//  Recorder.swift
 //  Kyapchar
 //
-//  Created by Vishal Telangre on 10/1/16.
+//  Created by Vishal Telangre on 11/1/16.
 //  Copyright © 2016 Vishal Telangre. All rights reserved.
 //
 
-import Cocoa
+import Foundation
 import AVFoundation
-import AppKit
 
-class ViewController: NSViewController {
+struct RecordingInfo {
+    var location: NSURL
+    var duration: Int
+    var size: Float
+}
+
+protocol RecorderDelegate {
+    func recordingDidStart(recordingInfo: RecordingInfo?)
+    func recordingDidStop(recordingInfo: RecordingInfo?)
+    func recordingDidResume(recordingInfo: RecordingInfo?)
+    func recordingDidPause(recordingInfo: RecordingInfo?)
+}
+
+class Recorder: NSObject {
+    
+    var delegate: RecorderDelegate?
+    
     var session: AVCaptureSession!
     var output: AVCaptureMovieFileOutput!
     var audioRecorder: AVAudioRecorder!
     var castedVideoURL = NSURL()
     var micAudioURL = NSURL()
     var finalVideoURL = NSURL()
-    var storedFileInfo: [[String]] = []
+    var recordingInfo: RecordingInfo!
+    var recording = false
+    var paused = false
     
     let micAudioRecordSettings = [AVSampleRateKey : NSNumber(float: Float(44100.0)),
-                          AVFormatIDKey : NSNumber(int: Int32(kAudioFormatMPEG4AAC)),
-                          AVNumberOfChannelsKey : NSNumber(int: 1),
-                          AVEncoderAudioQualityKey : NSNumber(int: Int32(AVAudioQuality.Medium.rawValue))]
+                                  AVFormatIDKey : NSNumber(int: Int32(kAudioFormatMPEG4AAC)),
+                                  AVNumberOfChannelsKey : NSNumber(int: 1),
+                                  AVEncoderAudioQualityKey : NSNumber(int: Int32(AVAudioQuality.Medium.rawValue))]
     
-    @IBOutlet weak var recordButton: NSButton!
-    @IBOutlet weak var debugInfoLabel: NSTextField!
-    @IBOutlet weak var pauseResumeButton: NSButton!
-    @IBOutlet weak var storedFileInfoTableView: NSTableView!
-    
-    @IBAction func onRecordClick(sender: NSButton) {
-        if (sender.state == NSOffState) {
-            sender.image = NSImage(named: "record")
-            sender.toolTip = "Start Recording"
-            pauseResumeButton.hidden = true
-            stopRecording()
-        } else {
-            sender.image = NSImage(named: "stop")
-            sender.toolTip = "Stop Recording"
-            pauseResumeButton.hidden = false
-            debugInfoLabel.stringValue = ""
-            startRecording()
-        }
+    init(delegate: RecorderDelegate) {
+        self.delegate = delegate
     }
     
-    @IBAction func onPauseResumeClick(sender: NSButton) {
-        if output.recordingPaused {
-            output.resumeRecording()
-            audioRecorder.record()
-        } else {
-            output.pauseRecording()
-            audioRecorder.pause()
-        }
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        pauseResumeButton.hidden = true
-        pauseResumeButton.image = NSImage(named: "pause")
-        pauseResumeButton.toolTip = "Pause Recording"
-
-        storedFileInfoTableView.setDataSource(self)
-    }
-    
-    func startRecording() {
-        storedFileInfo = []
+    func start() {
         session = AVCaptureSession()
         output = AVCaptureMovieFileOutput()
         (castedVideoURL, micAudioURL, finalVideoURL) = filePaths()
-        storedFileInfoTableView.reloadData()
         
         let input = AVCaptureScreenInput(displayID: CGMainDisplayID())
         let screen = NSScreen.mainScreen()!
@@ -78,6 +58,7 @@ class ViewController: NSViewController {
             audioRecorder = try AVAudioRecorder(URL: micAudioURL, settings: micAudioRecordSettings)
         } catch {
             print("Cannot initialize AVAudioRecorder: \(error)")
+            return
         }
         
         audioRecorder?.meteringEnabled = true
@@ -99,14 +80,31 @@ class ViewController: NSViewController {
         session?.startRunning()
         
         output!.startRecordingToOutputFileURL(castedVideoURL, recordingDelegate: self)
-        audioRecorder.record()
+        
+        recording = true
+        delegate?.recordingDidStart(nil)
     }
     
-    func stopRecording() {
+    func stop() {
         if output != nil {
+            recording = false
             output?.stopRecording()
-            audioRecorder?.stop()
-            debugInfoLabel.stringValue = "Please wait..."
+        }
+    }
+    
+    func pause() {
+        if output.recording {
+            output.pauseRecording()
+            paused = true
+            delegate?.recordingDidPause(nil)
+        }
+    }
+    
+    func resume() {
+        if output.recordingPaused {
+            output.resumeRecording()
+            paused = false
+            delegate?.recordingDidResume(nil)
         }
     }
     
@@ -124,6 +122,7 @@ class ViewController: NSViewController {
             try compositionAudioTrack.insertTimeRange(micAudioTimeRange, ofTrack: track, atTime: kCMTimeZero)
         } catch {
             print("Error while adding micAudioAsset to compositionAudioTrack: \(error)")
+            self.delegate?.recordingDidStop(nil)
         }
         
         do {
@@ -131,6 +130,7 @@ class ViewController: NSViewController {
             try compositionVideoTrack.insertTimeRange(castedVideoTimeRange, ofTrack: track, atTime: kCMTimeZero)
         } catch {
             print("Error while adding castedVideoAsset to compositionVideoTrack: \(error)")
+            self.delegate?.recordingDidStop(nil)
         }
         
         let assetExportSession = AVAssetExportSession(asset: mixComposition, presetName: AVAssetExportPresetHighestQuality)
@@ -139,24 +139,24 @@ class ViewController: NSViewController {
         assetExportSession?.exportAsynchronouslyWithCompletionHandler({
             dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), {
                 if assetExportSession?.status == AVAssetExportSessionStatus.Completed {
-                    let duration: Int = Int(CMTimeGetSeconds((assetExportSession?.asset.duration)!))
-                    var fileSize : Float = 0.0
+                    var size: Float = 0.0
                     
                     do {
                         let attr : NSDictionary? = try NSFileManager.defaultManager().attributesOfItemAtPath(self.finalVideoURL.path!)
                         if let _attr = attr {
-                            fileSize = Float(_attr.fileSize()/(1024*1024));
+                            size = Float(_attr.fileSize()/(1024*1024));
                         }
                     } catch {
                         print("Error while fetching final video file size: \(error)")
                     }
                     
-                    self.storedFileInfo = [["Duration", "\(self.formatDuration(duration)) Seconds"],
-                                           ["Location", self.finalVideoURL.absoluteString.stringByReplacingOccurrencesOfString("file://" + NSHomeDirectory(), withString: "~")],
-                                            ["Size", "\(String(format: "%.2f", fileSize)) MB"]]
+                    let duration = Int(CMTimeGetSeconds((assetExportSession?.asset.duration)!))
+                    let location = self.finalVideoURL
+                    self.recordingInfo = RecordingInfo(location: location, duration: duration, size: size)
+                    
                 } else {
                     print("Export failed")
-                    self.storedFileInfo = [["Error", "Export Failed"]]
+                    self.recordingInfo = nil
                 }
                 
                 do {
@@ -165,11 +165,8 @@ class ViewController: NSViewController {
                 } catch {
                     print("Error while deleting temporary files: \(error)")
                 }
-
-                dispatch_async(dispatch_get_main_queue(), {
-                    self.debugInfoLabel.stringValue = ""
-                    self.storedFileInfoTableView.reloadData()
-                })
+                
+                self.delegate?.recordingDidStop(self.recordingInfo)
             })
         })
     }
@@ -185,66 +182,38 @@ class ViewController: NSViewController {
         let tempVideoFilePath = NSURL(fileURLWithPath: "/tmp/\(filename).mp4")
         let tempMicAudioFilePath = NSURL(fileURLWithPath: "/tmp/\(filename).m4a")
         
-        print("Paths: tempVideoFilePath: \(tempVideoFilePath), tempMicAudioFilePath: \(tempMicAudioFilePath), finalVideoPath: \(finalVideoPath)")
-        
         return (tempVideoFilePath, tempMicAudioFilePath, finalVideoPath)
-    }
-    
-    func formatDuration(seconds: Int) -> String {
-        let hrs: Int = Int(seconds / 3600)
-        let mins: Int = Int((seconds % 3600) / 60)
-        let secs: Int = Int((seconds % 3600) % 60)
-        
-        return String(format: "%02d:%02d:%02d", hrs, mins, secs)
     }
 }
 
-extension ViewController: AVCaptureFileOutputRecordingDelegate {
+extension Recorder: AVCaptureFileOutputRecordingDelegate {
     func captureOutput(captureOutput: AVCaptureFileOutput!, didPauseRecordingToOutputFileAtURL fileURL: NSURL!, fromConnections connections: [AnyObject]!) {
-        pauseResumeButton.image = NSImage(named: "resume")
-        pauseResumeButton.toolTip = "Resume Recording"
+        audioRecorder.pause()
     }
     
     func captureOutput(captureOutput: AVCaptureFileOutput!, didResumeRecordingToOutputFileAtURL fileURL: NSURL!, fromConnections connections: [AnyObject]!) {
-        pauseResumeButton.image = NSImage(named: "pause")
-        pauseResumeButton.toolTip = "Pause Recording"
-        
-        NSApp.mainWindow?.miniaturize(self)
+        audioRecorder.record()
     }
     
     func captureOutput(captureOutput: AVCaptureFileOutput!, didStartRecordingToOutputFileAtURL fileURL: NSURL!, fromConnections connections: [AnyObject]!) {
-        NSApp.mainWindow?.miniaturize(self)
+        audioRecorder.record()
     }
     
     func captureOutput(captureOutput: AVCaptureFileOutput!, didFinishRecordingToOutputFileAtURL outputFileURL: NSURL!, fromConnections connections: [AnyObject]!, error: NSError!) {
         if (error != nil) {
             debugPrint(error)
+            return
         }
         
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0)) {
             self.session?.stopRunning()
+            self.audioRecorder?.stop()
             
             self.generateFinalVideo()
             
             self.session = nil
             self.output = nil
             self.audioRecorder = nil
-        }
-    }
-}
-
-extension ViewController: NSTableViewDataSource {
-    func numberOfRowsInTableView(tableView: NSTableView) -> Int {
-        return storedFileInfo.count
-    }
-    
-    func tableView(tableView: NSTableView, objectValueForTableColumn tableColumn: NSTableColumn?, row: Int) -> AnyObject? {
-        let item = storedFileInfo[row]
-        
-        if tableColumn?.identifier == "key" {
-            return item[0]
-        } else {
-            return item[1]
         }
     }
 }

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="10117" systemVersion="15G1004" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+    <dependencies>
+        <deployment identifier="macosx"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="10117"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
+            <connections>
+                <outlet property="delegate" destination="Voe-Tx-rLC" id="GzC-gU-4Uq"/>
+            </connections>
+        </customObject>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSObject"/>
+        <customObject id="Voe-Tx-rLC" customClass="AppDelegate" customModule="Kyapchar" customModuleProvider="target"/>
+        <customObject id="YLy-65-1bz" customClass="NSFontManager"/>
+        <menu autoenablesItems="NO" id="Pdp-Vf-hFg">
+            <items>
+                <menuItem title="Record" keyEquivalent="r" id="QQc-Wd-ATa">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="onRecordStopItemClick:" target="p5r-VI-AXR" id="34d-Sc-EHz"/>
+                    </connections>
+                </menuItem>
+                <menuItem title="Pause" enabled="NO" keyEquivalent="p" id="23a-EA-GHo">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="onPauseResumeItemClick:" target="p5r-VI-AXR" id="Qma-fq-cOP"/>
+                    </connections>
+                </menuItem>
+                <menuItem isSeparatorItem="YES" id="3kM-PI-BsL"/>
+                <menuItem title="Quit" keyEquivalent="q" id="DBI-fV-KJ2">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="onQuitItemClick:" target="p5r-VI-AXR" id="Tsl-fB-eMv"/>
+                    </connections>
+                </menuItem>
+            </items>
+        </menu>
+        <customObject id="p5r-VI-AXR" customClass="MenuController" customModule="Kyapchar" customModuleProvider="target">
+            <connections>
+                <outlet property="barMenu" destination="Pdp-Vf-hFg" id="wW8-mJ-eaK"/>
+                <outlet property="pauseResumeItem" destination="23a-EA-GHo" id="Ukl-io-TSQ"/>
+                <outlet property="recordStopItem" destination="QQc-Wd-ATa" id="SVY-MR-igE"/>
+            </connections>
+        </customObject>
+    </objects>
+</document>
