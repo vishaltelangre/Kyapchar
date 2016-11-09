@@ -18,6 +18,9 @@ class MenuController: NSObject {
     
     var recorder: Recorder!
     
+    var menubarIconAnimationTimer: NSTimer?
+    var menubarIconCurrentIndex = 0
+
     @IBAction func onRecordStopItemClick(sender: NSMenuItem) {
         if recorder.recording {
             recorder.stop()
@@ -49,14 +52,32 @@ class MenuController: NSObject {
         recorder = Recorder(delegate: self)
     }
     
+    func animateMenubarIcon() {
+        menubarIconAnimationTimer = NSTimer.scheduledTimerWithTimeInterval(1/2, target: self, selector: #selector(MenuController.changeMenubarIcon), userInfo: nil, repeats: true)
+    }
+
+    func stopMenubarIconAnimation() {
+        menubarIconAnimationTimer?.invalidate()
+    }
+
+    func changeMenubarIcon() {
+        statusItem.button?.image = NSImage(named: NSString(format: "stop-%d", (menubarIconCurrentIndex + 1)) as String)
+
+        menubarIconCurrentIndex += 1
+
+        if menubarIconCurrentIndex > 1 {
+            menubarIconCurrentIndex = 0
+        }
+    }
+
 }
 
 extension MenuController: RecorderDelegate {
     
     func recordingDidStart(recordingInfo: RecordingInfo?) {
         recordStopItem.title = "Stop"
-        statusItem.button?.image = NSImage(named: "stop")
-        
+        animateMenubarIcon()
+
         pauseResumeItem.enabled = true
         pauseResumeItem.title = "Pause"
     }
@@ -64,6 +85,9 @@ extension MenuController: RecorderDelegate {
     func recordingDidStop(recordingInfo: RecordingInfo?) {
         recordStopItem.enabled = true
         recordStopItem.title = "Record"
+
+        stopMenubarIconAnimation()
+
         statusItem.button?.image = NSImage(named: "record")
         
         pauseResumeItem.enabled = false
@@ -79,11 +103,14 @@ extension MenuController: RecorderDelegate {
     
     func recordingDidResume(recordingInfo: RecordingInfo?) {
         pauseResumeItem.title = "Pause"
-        statusItem.button?.image = NSImage(named: "stop")
+        animateMenubarIcon()
     }
     
     func recordingDidPause(recordingInfo: RecordingInfo?) {
         pauseResumeItem.title = "Resume"
+
+        stopMenubarIconAnimation()
+
         statusItem.button?.image = NSImage(named: "pause")
     }
     
