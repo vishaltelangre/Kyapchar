@@ -14,24 +14,24 @@ class MenuController: NSObject {
     @IBOutlet weak var recordStopItem: NSMenuItem!
     @IBOutlet weak var pauseResumeItem: NSMenuItem!
     
-    let statusItem = NSStatusBar.systemStatusBar().statusItemWithLength(NSSquareStatusItemLength)
+    let statusItem = NSStatusBar.system().statusItem(withLength: NSSquareStatusItemLength)
     
     var recorder: Recorder!
     
-    var menubarIconAnimationTimer: NSTimer?
+    var menubarIconAnimationTimer: Timer?
     var menubarIconCurrentIndex = 0
 
-    @IBAction func onRecordStopItemClick(sender: NSMenuItem) {
+    @IBAction func onRecordStopItemClick(_ sender: NSMenuItem) {
         if recorder.recording {
             recorder.stop()
-            recordStopItem.enabled = false
+            recordStopItem.isEnabled = false
             recordStopItem.title = "Please wait..."
         } else {
            recorder.start()
         }
     }
     
-    @IBAction func onPauseResumeItemClick(sender: NSMenuItem) {
+    @IBAction func onPauseResumeItemClick(_ sender: NSMenuItem) {
         if recorder.paused {
             recorder.resume()
         } else {
@@ -39,21 +39,21 @@ class MenuController: NSObject {
         }
     }
     
-    @IBAction func onQuitItemClick(sender: NSMenuItem) {
-        NSApplication.sharedApplication().terminate(self)
+    @IBAction func onQuitItemClick(_ sender: NSMenuItem) {
+        NSApplication.shared().terminate(self)
     }
     
     override func awakeFromNib() {
         statusItem.button?.image = NSImage(named: "record")
         
-        pauseResumeItem.enabled = false
+        pauseResumeItem.isEnabled = false
         
         statusItem.menu = barMenu
         recorder = Recorder(delegate: self)
     }
     
     func animateMenubarIcon() {
-        menubarIconAnimationTimer = NSTimer.scheduledTimerWithTimeInterval(1/2, target: self, selector: #selector(MenuController.changeMenubarIcon), userInfo: nil, repeats: true)
+        menubarIconAnimationTimer = Timer.scheduledTimer(timeInterval: 1/2, target: self, selector: #selector(MenuController.changeMenubarIcon), userInfo: nil, repeats: true)
     }
 
     func stopMenubarIconAnimation() {
@@ -74,39 +74,39 @@ class MenuController: NSObject {
 
 extension MenuController: RecorderDelegate {
     
-    func recordingDidStart(recordingInfo: RecordingInfo?) {
+    func recordingDidStart(_ recordingInfo: RecordingInfo?) {
         recordStopItem.title = "Stop"
         animateMenubarIcon()
 
-        pauseResumeItem.enabled = true
+        pauseResumeItem.isEnabled = true
         pauseResumeItem.title = "Pause"
     }
     
-    func recordingDidStop(recordingInfo: RecordingInfo?) {
-        recordStopItem.enabled = true
+    func recordingDidStop(_ recordingInfo: RecordingInfo?) {
+        recordStopItem.isEnabled = true
         recordStopItem.title = "Record"
 
         stopMenubarIconAnimation()
 
         statusItem.button?.image = NSImage(named: "record")
         
-        pauseResumeItem.enabled = false
+        pauseResumeItem.isEnabled = false
         pauseResumeItem.title = "Pause"
         
         recorder = nil
         recorder = Recorder(delegate: self)
         
         if recordingInfo?.location != nil {
-            NSWorkspace.sharedWorkspace().activateFileViewerSelectingURLs([recordingInfo!.location])
+            NSWorkspace.shared().activateFileViewerSelecting([recordingInfo!.location as URL])
         }
     }
     
-    func recordingDidResume(recordingInfo: RecordingInfo?) {
+    func recordingDidResume(_ recordingInfo: RecordingInfo?) {
         pauseResumeItem.title = "Pause"
         animateMenubarIcon()
     }
     
-    func recordingDidPause(recordingInfo: RecordingInfo?) {
+    func recordingDidPause(_ recordingInfo: RecordingInfo?) {
         pauseResumeItem.title = "Resume"
 
         stopMenubarIconAnimation()
