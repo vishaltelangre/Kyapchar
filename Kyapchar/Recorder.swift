@@ -8,6 +8,7 @@
 
 import Foundation
 import AVFoundation
+import Cocoa
 
 struct RecordingInfo {
     var location: URL
@@ -29,9 +30,9 @@ class Recorder: NSObject {
     var session: AVCaptureSession!
     var output: AVCaptureMovieFileOutput!
     var audioRecorder: AVAudioRecorder!
-    var castedVideoURL = URL()
-    var micAudioURL = URL()
-    var finalVideoURL = URL()
+    var castedVideoURL = URL(fileURLWithPath: "")
+    var micAudioURL = URL(fileURLWithPath: "")
+    var finalVideoURL = URL(fileURLWithPath: "")
     var recordingInfo: RecordingInfo!
     var recording = false
     var paused = false
@@ -64,7 +65,7 @@ class Recorder: NSObject {
         audioRecorder?.isMeteringEnabled = true
         audioRecorder?.prepareToRecord()
         
-        input.cropRect = screenRect
+        input?.cropRect = screenRect
         input?.minFrameDuration = CMTimeMake(1, 1000)
         
         if !session!.canAddInput(input) {
@@ -142,7 +143,7 @@ class Recorder: NSObject {
                     var size: Float = 0.0
                     
                     do {
-                        let attr : NSDictionary? = try FileManager.default.attributesOfItem(atPath: self.finalVideoURL.path!)
+                        let attr : NSDictionary? = try FileManager.default.attributesOfItem(atPath: self.finalVideoURL.path) as NSDictionary?
                         if let _attr = attr {
                             size = Float(_attr.fileSize()/(1024*1024));
                         }
@@ -175,9 +176,9 @@ class Recorder: NSObject {
         let date = Date()
         let calendar = Calendar.current
         let components = (calendar as NSCalendar).components([.hour, .minute, .second, .day, .month, .year], from: date)
-        let moviesDirectoryURL: URL = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask)[0]
-        let finalVideoFilename = "Kyapchar_\(components.day)-\(components.month)-\(components.year)_\(components.hour):\(components.minute):\(components.second).mov"
-        let finalVideoPath = moviesDirectoryURL.appendingPathComponent(finalVideoFilename)
+        let destinationURL: URL = UserDefaults.standard.url(forKey: "KyapcharSaveLocation")!
+        let finalVideoFilename = "Kyapchar_\(components.day!)-\(components.month!)-\(components.year!)_\(components.hour!):\(components.minute!):\(components.second!).mov"
+        let finalVideoPath = destinationURL.appendingPathComponent(finalVideoFilename)
         let filename = date.timeIntervalSince1970 * 1000
         let tempVideoFilePath = URL(fileURLWithPath: "/tmp/\(filename).mp4")
         let tempMicAudioFilePath = URL(fileURLWithPath: "/tmp/\(filename).m4a")

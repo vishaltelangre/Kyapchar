@@ -20,6 +20,7 @@ class MenuController: NSObject {
     
     var menubarIconAnimationTimer: Timer?
     var menubarIconCurrentIndex = 0
+    var preferences: Preferences!
 
     @IBAction func onRecordStopItemClick(_ sender: NSMenuItem) {
         if recorder.recording {
@@ -37,6 +38,12 @@ class MenuController: NSObject {
         } else {
             recorder.pause()
         }
+    }
+    
+    @IBAction func onPreferencesItemClick(_ sender: NSMenuItem) {
+        preferences = Preferences.init(windowNibName: "Preferences")
+        preferences.showWindow(self)
+        preferences.window?.makeKeyAndOrderFront(self)
     }
     
     @IBAction func onQuitItemClick(_ sender: NSMenuItem) {
