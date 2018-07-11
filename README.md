@@ -4,23 +4,27 @@
 
 Simple screen and microphone audio recorder for Mac
 
-## Preview 
+## Sneak Peek 
 
-Preview is a GIF image, which could take some time to load. Please be patient!
+Following GIF image is a preview of this simple recorder which stays in toolbar!
 
-![preview.gif](https://cloud.githubusercontent.com/assets/876195/19885741/4364de82-a046-11e6-90e2-810c71f37477.gif)
+![preview.gif](https://user-images.githubusercontent.com/876195/42590994-f1416784-8562-11e8-820a-e1cd840a5a35.gif)
 
 ## Download
 
-Download and install it from [releases](https://github.com/vishaltelangre/Kyapchar/releases) page.
+Download the latest zip file from from the [releases](https://github.com/vishaltelangre/Kyapchar/releases) page. 
+
+Extract it and move the compressed `Kypachar.app` from it into `Applications` folder displayed in the Finder app's sidebar.
 
 ## Development
 
-Open `Kyapchar.xcodeproj` with XCode, and hit `Command (⌘)-R` keys to build and run it locally.
+If you want to contribute or hack the source, then you're more than welcome!
+
+Open `Kyapchar.xcodeproj` with XCode app, and hit `cmd (⌘)` and `R` keys together to build and run it locally.
 
 ## Copyright and License
 
-Copyright (c) 2016, Vishal Telangre. All Rights Reserved.
+Copyright (c) 2016-18, Vishal Telangre. All Rights Reserved.
 
 This project is licenced under the [MIT License](LICENSE).
 
